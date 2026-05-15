@@ -1573,6 +1573,7 @@ document.getElementById('confirm-ok-btn').onclick = function() {
    STORAGE
    ============================================================ */
 const STORAGE_KEY = 'gestorpan_recipes';
+let firestoreUnsubscribe = null;
 
 function getFirestoreRef() {
   if (typeof firebase === 'undefined' || !firebase.firestore || !currentUser) return null;
@@ -1593,6 +1594,29 @@ async function syncAllRecipesToCloud(recipes) {
   }
 }
 
+function setupRealtimeListener() {
+  const ref = getFirestoreRef();
+  if (!ref) return;
+  
+  // Detener listener anterior si existe
+  if (firestoreUnsubscribe) firestoreUnsubscribe();
+  
+  // Configurar listener en tiempo real
+  firestoreUnsubscribe = ref.onSnapshot(
+    (snap) => {
+      const cloudRecipes = snap.docs.map(d => migrateRecipe(d.data()));
+      // Actualizar localStorage con datos de Firestore
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudRecipes));
+      // Refrescar UI si estamos viendo la biblioteca
+      if (currentSection === 'library') renderLibrary();
+      if (currentSection === 'adapter') populateAdapterSelector();
+    },
+    (error) => {
+      console.warn('Error en listener de Firestore:', error?.message || error);
+    }
+  );
+}
+
 async function pullRecipesFromCloud() {
   const ref = getFirestoreRef();
   if (!ref) return;
@@ -1609,6 +1633,8 @@ async function pullRecipesFromCloud() {
     }
     renderLibrary();
     populateAdapterSelector();
+    // Iniciar listener en tiempo real después de la carga inicial
+    setupRealtimeListener();
   } catch (e) {
     console.warn('No se pudieron cargar recetas desde Firestore:', e?.message || e);
   }
