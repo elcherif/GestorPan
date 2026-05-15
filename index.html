@@ -1596,38 +1596,56 @@ async function syncAllRecipesToCloud(recipes) {
 
 function setupRealtimeListener() {
   const ref = getFirestoreRef();
-  if (!ref) return;
+  if (!ref) {
+    console.warn('No hay Firestore ref disponible para listener');
+    return;
+  }
   
   // Detener listener anterior si existe
   if (firestoreUnsubscribe) firestoreUnsubscribe();
   
+  console.log('Iniciando listener en tiempo real para recetas...');
+  
   // Configurar listener en tiempo real
   firestoreUnsubscribe = ref.onSnapshot(
     (snap) => {
+      console.log('Cambios detectados en Firestore:', snap.docs.length, 'documentos');
       const cloudRecipes = snap.docs.map(d => migrateRecipe(d.data()));
       // Actualizar localStorage con datos de Firestore
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudRecipes));
-      // Refrescar UI si estamos viendo la biblioteca
-      if (currentSection === 'library') renderLibrary();
-      if (currentSection === 'adapter') populateAdapterSelector();
+      // Siempre refrescar biblioteca y adaptador
+      renderLibrary();
+      populateAdapterSelector();
     },
     (error) => {
-      console.warn('Error en listener de Firestore:', error?.message || error);
+      console.error('Error en listener de Firestore:', error?.code || error?.message || error);
+      // Si hay error de permisos, intentar con pull manual
+      if (error?.code === 'permission-denied') {
+        console.warn('Permisos denegados en Firestore. Revisa las reglas de seguridad.');
+      }
     }
   );
 }
 
 async function pullRecipesFromCloud() {
   const ref = getFirestoreRef();
-  if (!ref) return;
+  if (!ref) {
+    console.warn('No hay Firestore ref para pull');
+    renderLibrary();
+    populateAdapterSelector();
+    return;
+  }
   try {
+    console.log('Cargando recetas desde Firestore...');
     const snap = await ref.get();
     const cloudRecipes = snap.docs.map(d => migrateRecipe(d.data()));
+    console.log('Recetas cargadas desde Firestore:', cloudRecipes.length);
     if (cloudRecipes.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudRecipes));
     } else {
       const local = getRecipes();
       if (local.length > 0) {
+        console.log('Sincronizando recetas locales a Firestore...');
         await syncAllRecipesToCloud(local);
       }
     }
@@ -1636,7 +1654,10 @@ async function pullRecipesFromCloud() {
     // Iniciar listener en tiempo real después de la carga inicial
     setupRealtimeListener();
   } catch (e) {
-    console.warn('No se pudieron cargar recetas desde Firestore:', e?.message || e);
+    console.error('No se pudieron cargar recetas desde Firestore:', e?.code || e?.message || e);
+    // Fallback a localStorage local
+    renderLibrary();
+    populateAdapterSelector();
   }
 }
 
