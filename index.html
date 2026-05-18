@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GestorPan — Cuaderno de Recetas del Panadero</title>
+<!-- Favicon with bread emoji -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='90' text-anchor='middle' x='50'>🍞</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -90,6 +92,12 @@ code, .mono { font-family: 'JetBrains Mono', monospace; }
   align-items: center;
   gap: 0.5rem;
   letter-spacing: -0.02em;
+  transition: all 0.3s ease;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.nav-logo:hover {
+  transform: scale(1.05);
+  text-shadow: 0 4px 12px rgba(212,122,58,0.4);
 }
 .nav-logo span { color: var(--ochre-light); }
 .nav-links {
@@ -979,6 +987,30 @@ code, .mono { font-family: 'JetBrains Mono', monospace; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 .recipe-type-select option { text-transform: capitalize; }
 select option { background: white; }
+/* Icon Styles */
+.icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  background: linear-gradient(135deg, var(--ochre-light), var(--ochre));
+  box-shadow: 0 2px 8px var(--shadow-md);
+  margin-right: 0.75rem;
+}
+.feature-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: var(--radius-sm);
+  background: rgba(212,122,58,0.08);
+  color: var(--charcoal);
+  font-size: 0.9rem;
+}
 </style>
 </head>
 <body>
