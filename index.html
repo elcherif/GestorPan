@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GestorPan — Cuaderno de Recetas del Panadero</title>
+<!-- App version: bump this on each notable release -->
+<meta name="application-version" content="1.5.0">
 <!-- Favicon with bread emoji -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='90' text-anchor='middle' x='50'>🍞</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -126,6 +128,36 @@ code, .mono { font-family: 'JetBrains Mono', monospace; }
   gap: 0.5rem;
   margin-left: auto;
   align-items: center;
+}
+.nav-version {
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(253,246,227,0.45);
+  border: 1px solid rgba(253,246,227,0.18);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  white-space: nowrap;
+  cursor: default;
+  letter-spacing: 0.03em;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-version:hover { color: var(--ochre-light); border-color: var(--ochre-light); }
+.import-version-info {
+  font-size: 0.82rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  line-height: 1.45;
+}
+.import-version-ok {
+  background: rgba(101,163,13,0.08);
+  border: 1px solid rgba(101,163,13,0.3);
+  color: #3a6b04;
+}
+.import-version-warn {
+  background: rgba(202,138,4,0.08);
+  border: 1px solid rgba(202,138,4,0.35);
+  color: #7c5a00;
 }
 .nav-action-btn {
   background: rgba(253,246,227,0.1);
@@ -1029,6 +1061,7 @@ select option { background: white; }
       <button class="nav-btn" data-section="adapter">Adaptador</button>
     </div>
     <div class="nav-actions">
+      <span class="nav-version" id="nav-version-badge" title="Ver historial de cambios" onclick="showVersionHistory()"></span>
       <button class="nav-action-btn" onclick="exportAll()">⬇ Exportar</button>
       <label class="nav-action-btn" style="cursor:pointer">
         ⬆ Importar<input type="file" accept=".json" style="display:none" onchange="importFile(this)">
@@ -1163,12 +1196,24 @@ select option { background: white; }
 <div class="modal-overlay" id="import-modal">
   <div class="modal">
     <h3>Importar recetas</h3>
+    <p id="import-version-info" class="import-version-info" style="display:none"></p>
     <p>¿Cómo deseas importar las recetas del archivo?</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeImport()">Cancelar</button>
       <button class="btn btn-secondary" onclick="doImport('merge')">Combinar</button>
       <button class="btn btn-primary" onclick="doImport('replace')">Reemplazar todo</button>
     </div>
+  </div>
+</div>
+
+<!-- VERSION HISTORY MODAL -->
+<div class="modal-overlay" id="version-modal" onclick="if(event.target===this)closeVersionModal()">
+  <div class="modal" style="max-width:520px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="margin:0">Historial de versiones</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeVersionModal()">✕</button>
+    </div>
+    <div id="version-modal-body"></div>
   </div>
 </div>
 
@@ -1610,6 +1655,47 @@ document.getElementById('confirm-ok-btn').onclick = function() {
 /* ============================================================
    STORAGE
    ============================================================ */
+const APP_VERSION = '1.5.0';
+
+// Schema version tracks breaking data model changes (integer).
+// Bump when ingredient/recipe structure changes in a way that requires migration.
+//   1 → original format (isBaseFlour, no phase field)
+//   2 → phase field on ingredients (v1.5.0+), isBaseIngredient replaces isBaseFlour
+const SCHEMA_VERSION = 2;
+
+const APP_CHANGELOG = [
+  { version: '1.5.0', date: '2026-05-18', changes: [
+    'Gestión de ingredientes en dos fases: prefermento e ingredientes finales',
+    'Fase visible en editor, detalle, impresión y adaptador',
+    'El importador de texto detecta secciones como “Prefermento:” automáticamente',
+  ]},
+  { version: '1.4.0', date: '2026-05-18', changes: [
+    'Adaptador de recetas agrupa por fase e indica unidades en huevos',
+    'Panel “Receta original” muestra el ingrediente seleccionado con su cantidad real',
+  ]},
+  { version: '1.3.0', date: '2026-05-18', changes: [
+    'Huevos se muestran en unidades (ud) en todo el flujo: editor, detalle, adaptador, gráfico e impresión',
+    'Tooltip del gráfico usa formato de cantidad según tipo de ingrediente',
+    'Cabeceras de tablas cambiadas de “Gramos” a “Cantidad”',
+  ]},
+  { version: '1.2.0', date: '2026-05-18', changes: [
+    'Favicon con icono de pan',
+    'Logo con efecto hover',
+    'Soporte de fases preparado en CSS',
+  ]},
+  { version: '1.1.0', date: '2026-05-18', changes: [
+    'Sincronización en tiempo real con Firestore (onSnapshot)',
+    'Cierre de sesión restaura recetas de muestra',
+    'Gestión de sesiones y lifecycle de listeners mejorada',
+  ]},
+  { version: '1.0.0', date: '2026-05-18', changes: [
+    'Versión inicial: biblioteca, editor, adaptador y vista de detalle',
+    'Autenticación con email/contraseña y Google',
+    'Exportar e importar recetas en JSON',
+    'Cálculo de porcentaje del panadero e hidratación',
+  ]},
+];
+
 const STORAGE_KEY = 'gestorpan_recipes';
 let firestoreUnsubscribe = null;
 
@@ -4074,7 +4160,8 @@ function printAdapted() {
    ============================================================ */
 function exportAll() {
   const data = {
-    version: 1,
+    appVersion: APP_VERSION,
+    schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     recipes: getRecipes()
   };
@@ -4088,6 +4175,8 @@ function exportAll() {
 }
 
 let importData = null;
+let importMeta = null;
+
 function importFile(input) {
   const file = input.files[0];
   if (!file) return;
@@ -4095,11 +4184,58 @@ function importFile(input) {
   reader.onload = e => {
     try {
       const parsed = JSON.parse(e.target.result);
-      importData = parsed.recipes || parsed;
-      if (!Array.isArray(importData) || importData.length === 0) throw new Error();
+      const recipes = parsed.recipes || parsed;
+      if (!Array.isArray(recipes) || recipes.length === 0) throw new Error('empty');
+
+      // Determine schema version of the file
+      const fileSchema = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion
+                       : typeof parsed.version === 'number' ? parsed.version
+                       : 0;
+      const fileAppVer = parsed.appVersion
+                       ? 'v' + parsed.appVersion
+                       : (parsed.version ? 'v' + parsed.version : 'desconocida');
+      const fileDate = parsed.exportedAt
+                     ? new Date(parsed.exportedAt).toLocaleDateString('es-ES')
+                     : null;
+
+      // Block files from a future schema we don't understand
+      if (fileSchema > SCHEMA_VERSION) {
+        toast(
+          `No se puede importar: el archivo requiere una versión más nueva de GestorPan ` +
+          `(esquema ${fileSchema}, app ${fileAppVer}). Actualiza la aplicación.`,
+          'error'
+        );
+        input.value = '';
+        return;
+      }
+
+      const needsMigration = fileSchema < SCHEMA_VERSION;
+      importData = recipes;
+      importMeta = { schemaVersion: fileSchema, appVersion: fileAppVer, fileDate, needsMigration };
+
+      // Show info in modal
+      const infoEl = document.getElementById('import-version-info');
+      if (infoEl) {
+        let msg = '';
+        if (needsMigration) {
+          const missingFeatures = [];
+          if (fileSchema < 2) missingFeatures.push('fases de ingredientes');
+          msg = `⚠️ Archivo de versión anterior (${escHtml(fileAppVer)}${fileDate ? ', ' + fileDate : ''}, esquema ${fileSchema}). ` +
+                `Se migrará automáticamente: ${missingFeatures.join(', ') || 'campos nuevos se añadirán con valores por defecto'}.`;
+          infoEl.className = 'import-version-info import-version-warn';
+        } else {
+          msg = `✔ Archivo compatible (${escHtml(fileAppVer)}${fileDate ? ', ' + fileDate : ''}, esquema ${fileSchema}).`;
+          infoEl.className = 'import-version-info import-version-ok';
+        }
+        infoEl.textContent = '';
+        infoEl.innerHTML = msg;
+        infoEl.style.display = '';
+      }
+
       document.getElementById('import-modal').classList.add('open');
-    } catch {
-      toast('Archivo JSON inválido','error');
+    } catch(err) {
+      if (err.message === 'empty') toast('El archivo no contiene recetas', 'error');
+      else toast('Archivo JSON inválido', 'error');
     }
   };
   reader.readAsText(file);
@@ -4111,20 +4247,51 @@ function closeImport() {
   importData = null;
 }
 
+/* ============================================================
+   VERSION BADGE & MODAL
+   ============================================================ */
+function initVersionBadge() {
+  const badge = document.getElementById('nav-version-badge');
+  if (badge) badge.textContent = 'v' + APP_VERSION;
+}
+initVersionBadge();
+
+function showVersionHistory() {
+  const body = document.getElementById('version-modal-body');
+  body.innerHTML = APP_CHANGELOG.map(entry => `
+    <div style="margin-bottom:1.4rem">
+      <div style="display:flex;align-items:baseline;gap:0.6rem;margin-bottom:0.4rem">
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--brown);font-size:0.95rem">v${escHtml(entry.version)}</span>
+        <span style="font-size:0.78rem;color:var(--warm-gray)">${escHtml(entry.date)}</span>
+      </div>
+      <ul style="margin:0;padding-left:1.2rem;list-style:disc">
+        ${entry.changes.map(c => `<li style="font-size:0.85rem;color:var(--charcoal);margin-bottom:0.25rem">${escHtml(c)}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+  document.getElementById('version-modal').classList.add('open');
+}
+
+function closeVersionModal() {
+  document.getElementById('version-modal').classList.remove('open');
+}
+
 function doImport(mode) {
   if (!importData) return;
+  // Apply migration to every imported recipe regardless of source schema
+  const migratedData = importData.map(migrateRecipe);
+  const wasMigrated = importMeta && importMeta.needsMigration;
   closeImport();
   if (mode === 'replace') {
-    saveRecipes(importData);
-    toast(`${importData.length} recetas importadas (reemplazando)`);
+    saveRecipes(migratedData);
+    toast(`${migratedData.length} recetas importadas${wasMigrated ? ' (migradas al formato actual)' : ''}`);
   } else {
     const existing = getRecipes();
     const existingIds = new Set(existing.map(r => r.id));
     const merged = [...existing];
     let added = 0;
-    for (const r of importData) {
+    for (const r of migratedData) {
       if (existingIds.has(r.id)) {
-        // Update existing
         const idx = merged.findIndex(x => x.id === r.id);
         merged[idx] = r;
       } else {
@@ -4133,9 +4300,10 @@ function doImport(mode) {
       }
     }
     saveRecipes(merged);
-    toast(`${added} recetas añadidas, ${importData.length - added} actualizadas`);
+    toast(`${added} recetas añadidas, ${migratedData.length - added} actualizadas${wasMigrated ? ' (migradas)' : ''}`);
   }
   importData = null;
+  importMeta = null;
   renderLibrary();
 }
 
