@@ -917,9 +917,13 @@ code, .mono { font-family: 'JetBrains Mono', monospace; }
 .print-recipe { display: none; }
 /* Starter breakdown row */
 .starter-row td { padding: 0 0 0.5rem 2.5rem !important; border: none !important; }
+.phase-row td { padding: 0.55rem 0.8rem 0.35rem !important; border: none !important; }
+.phase-label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--brown); }
+.phase-divider { height: 1px; margin-top: 0.45rem; background: linear-gradient(90deg, var(--ochre-light), transparent); }
 .starter-details { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--warm-gray); }
 .starter-details label { display: flex; align-items: center; gap: 0.3rem; }
 .ing-starter-input { width: 4.5rem; padding: 0.2rem 0.4rem; border: 1px solid var(--cream-dark); border-radius: 4px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
+.ing-phase-select { width: 100%; padding: 0.45rem 0.55rem; border: 1px solid var(--cream-dark); border-radius: 8px; background: white; color: var(--charcoal); font-size: 0.82rem; }
 
 /* ============================================================
    SEARCH CLEAR BUTTON
@@ -1332,8 +1336,9 @@ select option { background: white; }
           <thead>
             <tr>
               <th style="width:28px"></th>
-              <th style="width:36%">Ingrediente</th>
-              <th style="width:18%">Cantidad</th>
+              <th style="width:16%">Fase</th>
+              <th style="width:32%">Ingrediente</th>
+              <th style="width:16%">Cantidad</th>
               <th style="width:14%">%</th>
               <th style="width:80px;text-align:center" title="¿Es ingrediente base?">Base ⚖</th>
               <th style="width:80px"></th>
@@ -1342,7 +1347,8 @@ select option { background: white; }
           <tbody id="ing-tbody"></tbody>
         </table>
         <div class="add-ing-row">
-          <button class="btn btn-ghost btn-sm" onclick="addIngredientRow()">+ Añadir ingrediente</button>
+          <button class="btn btn-ghost btn-sm" onclick="addIngredientRow('', '', false, 'prefermento')">+ Añadir prefermento</button>
+          <button class="btn btn-ghost btn-sm" onclick="addIngredientRow()">+ Añadir ingrediente final</button>
         </div>
         <div class="baker-info-bar" id="baker-info">
           <div class="baker-stat"><div class="baker-stat-label">Harina total</div><div class="baker-stat-value" id="bi-flour">—</div></div>
@@ -1355,8 +1361,8 @@ select option { background: white; }
 
       <!-- MODE B -->
       <div id="mode-b" style="display:none">
-        <p class="text-muted" style="font-size:0.85rem;margin-bottom:0.75rem">Escribe o pega los ingredientes en cualquier formato. Admite <code>Harina 500g</code>, <code>Agua 350g</code>, <code>500 gramos de harina</code>, <code>1 cucharadita de levadura</code>, <code>2 huevos</code>, porcentajes <code>Harina 100%</code>, <code>Agua 70%</code> o texto con secciones (las líneas como "Para la masa:" se omiten automáticamente).</p>
-        <textarea class="form-textarea" id="mode-b-text" style="min-height:200px;font-family:'JetBrains Mono',monospace;font-size:0.875rem" placeholder="500 gramos de harina de fuerza&#10;300 mililitros de leche&#10;150 gramos de mantequilla&#10;150 gramos de azúcar&#10;2 huevos&#10;1 cucharadita de levadura&#10;1 pizca de sal"></textarea>
+        <p class="text-muted" style="font-size:0.85rem;margin-bottom:0.75rem">Escribe o pega los ingredientes en cualquier formato. Admite <code>Harina 500g</code>, <code>Agua 350g</code>, <code>500 gramos de harina</code>, <code>1 cucharadita de levadura</code>, <code>2 huevos</code>, porcentajes <code>Harina 100%</code>, <code>Agua 70%</code> o texto con secciones como <code>Prefermento:</code> y <code>Ingredientes finales:</code>.</p>
+        <textarea class="form-textarea" id="mode-b-text" style="min-height:200px;font-family:'JetBrains Mono',monospace;font-size:0.875rem" placeholder="Prefermento:&#10;100 gramos de harina de fuerza&#10;100 gramos de agua&#10;1 gramo de levadura&#10;&#10;Ingredientes finales:&#10;400 gramos de harina de fuerza&#10;250 gramos de agua&#10;10 gramos de sal&#10;2 huevos"></textarea>
         <div class="mt-2 flex gap-1">
           <button class="btn btn-primary" onclick="parseTextMode()">🔍 Interpretar</button>
           <button class="btn btn-ghost btn-sm" onclick="clearModeB()">Limpiar</button>
@@ -1707,9 +1713,9 @@ function migrateRecipe(r) {
     r.ingredients = r.ingredients.map(ing => {
       if ('isBaseFlour' in ing && !('isBaseIngredient' in ing)) {
         const { isBaseFlour, ...rest } = ing;
-        return { ...rest, isBaseIngredient: isBaseFlour };
+        return { ...rest, isBaseIngredient: isBaseFlour, phase: rest.phase === 'prefermento' ? 'prefermento' : 'final' };
       }
-      return ing;
+      return { ...ing, phase: ing.phase === 'prefermento' ? 'prefermento' : 'final' };
     });
   }
   return r;
@@ -3219,13 +3225,17 @@ function viewRecipe(id) {
   // Ingredients table
   const tbody = document.getElementById('detail-ing-tbody');
   const totalMass = sum.totalMass || 1;
+  let lastPhase = null;
   tbody.innerHTML = ings.map(ing => {
     const pct = ing.percentage;
     const isEgg = isEggIng(ing.name);
+    const phase = normalizeIngredientPhase(ing.phase);
     const displayGrams = parseFloat(ing.grams)||0;
     const displayText = isEgg ? gramsToEggCount(displayGrams) + ' ud' : fmtNum(displayGrams,1) + 'g';
     const barW = Math.min(100, displayGrams / totalMass * 100);
-    return `<tr class="${ing.isBaseIngredient?'base-row':''}">
+    const phaseRow = phase !== lastPhase ? renderPhaseHeaderRow(phase, 4) : '';
+    lastPhase = phase;
+    return `${phaseRow}<tr class="${ing.isBaseIngredient?'base-row':''}">
       <td>${escHtml(ing.name||'')}${ing.isBaseIngredient?' <span style="font-size:0.7em;opacity:0.6">🌾</span>':''}</td>
       <td class="num grams-cell">${displayText}</td>
       <td class="num pct-cell ${ing.isBaseIngredient?'base':''}">${pct!==null?fmtNum(pct)+'%':'—'}</td>
@@ -3358,12 +3368,30 @@ let editorTags = [];
 let editorIngredients = []; // array of { id, name, grams, isBaseIngredient }
 let dragSrcIdx = null;
 
+function normalizeIngredientPhase(phase) {
+  return phase === 'prefermento' ? 'prefermento' : 'final';
+}
+
+function phaseMeta(phase) {
+  const normalized = normalizeIngredientPhase(phase);
+  return normalized === 'prefermento'
+    ? { value: 'prefermento', label: 'Prefermento', icon: '🧫' }
+    : { value: 'final', label: 'Final', icon: '🥣' };
+}
+
+function getIngredientPhaseFromHeader(text, fallback='final') {
+  const value = (text || '').toLowerCase();
+  if (/preferment|poolish|biga|levain|esponja|masa\s*madre/.test(value)) return 'prefermento';
+  if (/final|masa\s+final|ingredientes\s+finales|mezcla\s+final/.test(value)) return 'final';
+  return fallback;
+}
+
 function newRecipe() {
   editingId = null;
   editorTags = [];
   editorIngredients = [
-    { id: uid(), name: '', grams: '', isBaseIngredient: false },
-    { id: uid(), name: '', grams: '', isBaseIngredient: false },
+    { id: uid(), name: '', grams: '', isBaseIngredient: false, phase: 'final' },
+    { id: uid(), name: '', grams: '', isBaseIngredient: false, phase: 'final' },
   ];
   document.getElementById('editor-title').textContent = 'Nueva Receta';
   document.getElementById('f-name').value = '';
@@ -3380,7 +3408,7 @@ function editRecipe(id) {
   if (!r) return;
   editingId = id;
   editorTags = [...(r.tags||[])];
-  editorIngredients = r.ingredients.map(i => ({ ...i, id: i.id||uid() }));
+  editorIngredients = r.ingredients.map(i => ({ ...i, id: i.id||uid(), phase: normalizeIngredientPhase(i.phase) }));
   document.getElementById('editor-title').textContent = 'Editar: ' + r.name;
   document.getElementById('f-name').value = r.name;
   document.getElementById('f-type').value = r.type||'pan';
@@ -3465,8 +3493,8 @@ function switchMode(mode) {
 }
 
 /* Ingredient table */
-function addIngredientRow(name='', grams='', isBaseIngredient=false) {
-  editorIngredients.push({ id: uid(), name, grams, isBaseIngredient });
+function addIngredientRow(name='', grams='', isBaseIngredient=false, phase='final') {
+  editorIngredients.push({ id: uid(), name, grams, isBaseIngredient, phase: normalizeIngredientPhase(phase) });
   renderIngTable();
   // focus last name input
   const rows = document.querySelectorAll('.ing-row');
@@ -3500,6 +3528,11 @@ function formatIngredientAmount(ing) {
   const grams = parseFloat(ing.grams) || 0;
   if (isEggIng(ing.name)) return fmtNum(gramsToEggCount(grams), 1) + ' ud';
   return fmtNum(grams, 1) + 'g';
+}
+
+function renderPhaseHeaderRow(phase, colSpan) {
+  const meta = phaseMeta(phase);
+  return `<tr class="phase-row"><td colspan="${colSpan}"><div class="phase-label">${meta.icon} ${meta.label}</div><div class="phase-divider"></div></td></tr>`;
 }
 
 function updateAdapterIngredientInput() {
@@ -3555,25 +3588,35 @@ function renderIngTable() {
   const tbody = document.getElementById('ing-tbody');
   const calc = calcBakers(editorIngredients);
   const sum = calcSummary(calc);
+  let lastPhase = null;
   tbody.innerHTML = editorIngredients.map((ing, idx) => {
     const pct = calc[idx].percentage;
     const pctStr = pct !== null ? fmtNum(pct)+'%' : '—';
     const showStarter = isStarterIng(ing.name);
     const isEgg = isEggIng(ing.name);
+    const phase = normalizeIngredientPhase(ing.phase);
     const displayValue = isEgg ? gramsToEggCount(ing.grams||0) : (ing.grams||'');
     const displayUnit = isEgg ? 'ud' : 'g';
-    const starterRow = showStarter ? `<tr class="starter-row"><td colspan="6"><div class="starter-details">
+    const phaseRow = phase !== lastPhase ? renderPhaseHeaderRow(phase, 7) : '';
+    lastPhase = phase;
+    const starterRow = showStarter ? `<tr class="starter-row"><td colspan="7"><div class="starter-details">
       🧫 Desglose del starter:
       <label>% harina <input type="number" class="ing-starter-input" value="${ing.starterFlourPct!=null?ing.starterFlourPct:''}" min="0" max="100" placeholder="ej. 50" oninput="updateStarterField(${idx},'starterFlourPct',this.value)"></label>
       <label>% agua <input type="number" class="ing-starter-input" value="${ing.starterWaterPct!=null?ing.starterWaterPct:''}" min="0" max="100" placeholder="ej. 50" oninput="updateStarterField(${idx},'starterWaterPct',this.value)"></label>
       <small>(100% hidratación → 50% harina / 50% agua)</small>
     </div></td></tr>` : '';
-    return `<tr class="ing-row" draggable="true" data-idx="${idx}"
+    return `${phaseRow}<tr class="ing-row" draggable="true" data-idx="${idx}"
         ondragstart="dragStart(${idx})"
         ondragover="dragOver(event,${idx})"
         ondrop="dragDrop(event,${idx})"
         ondragend="dragEnd()">
       <td><span class="drag-handle" title="Arrastra para reordenar">⠿</span></td>
+      <td>
+        <select class="ing-phase-select" onchange="updateIng(${idx},'phase',this.value)">
+          <option value="prefermento"${phase==='prefermento'?' selected':''}>Prefermento</option>
+          <option value="final"${phase==='final'?' selected':''}>Final</option>
+        </select>
+      </td>
       <td><input class="ing-name-input" type="text" list="ingredient-suggestions" value="${escHtml(ing.name||'')}" placeholder="Ej. Harina de fuerza" oninput="updateIng(${idx},'name',this.value)"></td>
       <td><input class="ing-grams-input" type="number" value="${displayValue}" placeholder="${displayUnit}" min="0" step="${isEgg?1:0.1}" oninput="updateIng(${idx},'${isEgg?'eggCount':'grams'}',this.value)"></td>
       <td><div class="ing-pct${ing.isBaseIngredient?' is-base':''}">${pctStr}</div></td>
@@ -3616,6 +3659,10 @@ function updateStarterField(idx, field, rawValue) {
 function updateIng(idx, field, val) {
   if (field === 'eggCount') {
     editorIngredients[idx]['grams'] = eggCountToGrams(val);
+  } else if (field === 'phase') {
+    editorIngredients[idx][field] = normalizeIngredientPhase(val);
+    renderIngTable();
+    return;
   } else {
     editorIngredients[idx][field] = val;
   }
@@ -3697,6 +3744,7 @@ function parseTextMode() {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const results = [];
   const warnings = [];
+  let currentPhase = 'final';
 
   // Unit conversion to approximate grams
   function unitToGrams(value, unit) {
@@ -3742,26 +3790,30 @@ function parseTextMode() {
   if (pctMatches.length > lines.length * 0.6) isPercentMode = true;
 
   for (const line of lines) {
-    if (reSection.test(line) || reSep.test(line)) continue; // skip headers/separators
+    if (reSection.test(line)) {
+      currentPhase = getIngredientPhaseFromHeader(line, currentPhase);
+      continue;
+    }
+    if (reSep.test(line)) continue; // skip separators
     let m;
     if ((m = rePct.exec(line))) {
-      results.push({ name: m[1].trim(), value: parseFloat(m[2].replace(',','.')), unit: '%' });
+      results.push({ name: m[1].trim(), value: parseFloat(m[2].replace(',','.')), unit: '%', phase: currentPhase });
     } else if ((m = reCountOnly.exec(line))) {
       const raw = parseFloat(m[1].replace(',','.'));
       const dispName = m[2].charAt(0).toUpperCase() + m[2].slice(1).toLowerCase();
-      results.push({ name: dispName, value: unitToGrams(raw, m[2]), unit: 'g', srcUnit: m[2] });
+      results.push({ name: dispName, value: unitToGrams(raw, m[2]), unit: 'g', srcUnit: m[2], phase: currentPhase });
     } else if ((m = reCountWithAdj.exec(line))) {
       const raw = parseFloat(m[1].replace(',','.'));
       const unitWord = m[2].charAt(0).toUpperCase() + m[2].slice(1).toLowerCase();
       const adjWords = m[3].trim();
       const dispName = unitWord + ' ' + adjWords;
-      results.push({ name: dispName, value: unitToGrams(raw, m[2]), unit: 'g', srcUnit: m[2] });
+      results.push({ name: dispName, value: unitToGrams(raw, m[2]), unit: 'g', srcUnit: m[2], phase: currentPhase });
     } else if ((m = reNatural.exec(line))) {
       const raw = parseFloat(m[1].replace(',','.'));
-      results.push({ name: m[3].trim(), value: unitToGrams(raw, m[2]), unit: 'g', srcUnit: m[2] });
+      results.push({ name: m[3].trim(), value: unitToGrams(raw, m[2]), unit: 'g', srcUnit: m[2], phase: currentPhase });
     } else if ((m = reTraditional.exec(line))) {
       const raw = parseFloat(m[2].replace(',','.'));
-      results.push({ name: m[1].trim(), value: unitToGrams(raw, m[3]), unit: 'g', srcUnit: m[3] });
+      results.push({ name: m[1].trim(), value: unitToGrams(raw, m[3]), unit: 'g', srcUnit: m[3], phase: currentPhase });
     } else {
       warnings.push(line);
     }
@@ -3780,7 +3832,8 @@ function parseTextMode() {
     newIngs = results.map(r => ({
       id: uid(), name: r.name,
       grams: r.unit === '%' ? r.value : r.value,
-      isBaseIngredient: r === base
+      isBaseIngredient: r === base,
+      phase: normalizeIngredientPhase(r.phase)
     }));
   } else {
     const maxG = Math.max(...results.map(r => r.value));
@@ -3789,7 +3842,8 @@ function parseTextMode() {
     const baseRef = baseByName || baseByWeight;
     newIngs = results.map(r => ({
       id: uid(), name: r.name, grams: r.value,
-      isBaseIngredient: r === baseRef
+      isBaseIngredient: r === baseRef,
+      phase: normalizeIngredientPhase(r.phase)
     }));
   }
 
@@ -3988,11 +4042,22 @@ function printAdapted() {
           </tr>
         </thead>
         <tbody>
-          ${ings.map(i => `<tr>
+          ${(() => {
+            let lastPhase = null;
+            return ings.map(i => {
+              const phase = normalizeIngredientPhase(i.phase);
+              const meta = phaseMeta(phase);
+              const phaseRow = phase !== lastPhase
+                ? `<tr><td colspan="3" style="padding:0.7rem 0.5rem 0.35rem;border-bottom:1px solid #F5E6C8;font-weight:700;color:#6B3A2A">${meta.icon} ${meta.label}</td></tr>`
+                : '';
+              lastPhase = phase;
+              return `${phaseRow}<tr>
             <td style="padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8">${escHtml(i.name||'')}${i.isBaseIngredient?' (ingrediente base)':''}</td>
             <td style="text-align:right;padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8;font-family:'JetBrains Mono',monospace">${formatIngredientAmount(i)}</td>
             <td style="text-align:right;padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8;font-family:'JetBrains Mono',monospace">${i.percentage!==null?fmtNum(i.percentage)+'%':'—'}</td>
-          </tr>`).join('')}
+          </tr>`;
+            }).join('');
+          })()}
         </tbody>
       </table>
       <div style="margin-top:1.5rem;display:flex;gap:2rem">
