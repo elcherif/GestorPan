@@ -1661,6 +1661,14 @@ async function pullRecipesFromCloud() {
   }
 }
 
+function resetToDefaultRecipes() {
+  const defaults = SAMPLE_RECIPES.map(r => ({ ...r, ingredients: calcBakers(r.ingredients) }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+  localStorage.setItem(SAMPLES_VER_KEY, SAMPLES_VERSION.toString());
+  renderLibrary();
+  populateAdapterSelector();
+}
+
 function migrateRecipe(r) {
   // Migrate old isBaseFlour -> isBaseIngredient
   if (r && Array.isArray(r.ingredients)) {
@@ -3181,10 +3189,13 @@ function viewRecipe(id) {
   const totalMass = sum.totalMass || 1;
   tbody.innerHTML = ings.map(ing => {
     const pct = ing.percentage;
-    const barW = Math.min(100, (parseFloat(ing.grams)||0) / totalMass * 100);
+    const isEgg = isEggIng(ing.name);
+    const displayGrams = parseFloat(ing.grams)||0;
+    const displayText = isEgg ? gramsToEggCount(displayGrams) + ' ud' : fmtNum(displayGrams,1) + 'g';
+    const barW = Math.min(100, displayGrams / totalMass * 100);
     return `<tr class="${ing.isBaseIngredient?'base-row':''}">
       <td>${escHtml(ing.name||'')}${ing.isBaseIngredient?' <span style="font-size:0.7em;opacity:0.6">🌾</span>':''}</td>
-      <td class="num grams-cell">${fmtNum(parseFloat(ing.grams)||0,1)}g</td>
+      <td class="num grams-cell">${displayText}</td>
       <td class="num pct-cell ${ing.isBaseIngredient?'base':''}">${pct!==null?fmtNum(pct)+'%':'—'}</td>
       <td class="bar-cell"><div class="bar-outer"><div class="bar-inner" style="width:${barW}%"></div></div></td>
     </tr>`;
@@ -3430,6 +3441,22 @@ function isStarterIng(name) {
   return /masa\s*madre|poolish|biga|prefermento|starter|levain|esponja/i.test(name||'');
 }
 
+function isEggIng(name) {
+  return /huevo|egg/i.test(name||'');
+}
+
+// 1 huevo ≈ 55 gramos
+const EGG_WEIGHT_GRAMS = 55;
+
+function eggCountToGrams(count) {
+  return (parseFloat(count)||0) * EGG_WEIGHT_GRAMS;
+}
+
+function gramsToEggCount(grams) {
+  const count = (parseFloat(grams)||0) / EGG_WEIGHT_GRAMS;
+  return Math.round(count * 10) / 10; // Redondea a 1 decimal
+}
+
 function renderIngTable() {
   const tbody = document.getElementById('ing-tbody');
   const calc = calcBakers(editorIngredients);
@@ -3438,6 +3465,9 @@ function renderIngTable() {
     const pct = calc[idx].percentage;
     const pctStr = pct !== null ? fmtNum(pct)+'%' : '—';
     const showStarter = isStarterIng(ing.name);
+    const isEgg = isEggIng(ing.name);
+    const displayValue = isEgg ? gramsToEggCount(ing.grams||0) : (ing.grams||'');
+    const displayUnit = isEgg ? 'ud' : 'g';
     const starterRow = showStarter ? `<tr class="starter-row"><td colspan="6"><div class="starter-details">
       🧫 Desglose del starter:
       <label>% harina <input type="number" class="ing-starter-input" value="${ing.starterFlourPct!=null?ing.starterFlourPct:''}" min="0" max="100" placeholder="ej. 50" oninput="updateStarterField(${idx},'starterFlourPct',this.value)"></label>
@@ -3451,7 +3481,7 @@ function renderIngTable() {
         ondragend="dragEnd()">
       <td><span class="drag-handle" title="Arrastra para reordenar">⠿</span></td>
       <td><input class="ing-name-input" type="text" list="ingredient-suggestions" value="${escHtml(ing.name||'')}" placeholder="Ej. Harina de fuerza" oninput="updateIng(${idx},'name',this.value)"></td>
-      <td><input class="ing-grams-input" type="number" value="${ing.grams||''}" placeholder="g" min="0" step="0.1" oninput="updateIng(${idx},'grams',this.value)"></td>
+      <td><input class="ing-grams-input" type="number" value="${displayValue}" placeholder="${displayUnit}" min="0" step="${isEgg?1:0.1}" oninput="updateIng(${idx},'${isEgg?'eggCount':'grams'}',this.value)"></td>
       <td><div class="ing-pct${ing.isBaseIngredient?' is-base':''}">${pctStr}</div></td>
       <td>
         <div class="base-toggle">
@@ -3490,7 +3520,11 @@ function updateStarterField(idx, field, rawValue) {
 }
 
 function updateIng(idx, field, val) {
-  editorIngredients[idx][field] = val;
+  if (field === 'eggCount') {
+    editorIngredients[idx]['grams'] = eggCountToGrams(val);
+  } else {
+    editorIngredients[idx][field] = val;
+  }
   // Only refresh calculated cells to preserve cursor position while typing
   refreshIngCalcs();
 }
@@ -4007,6 +4041,12 @@ function handleAuthStateChange(user) {
     const first = user.displayName ? user.displayName.split(' ')[0] : (user.email || '');
     toast(first ? 'Bienvenido, ' + first : 'Bienvenido', 'success');
     pullRecipesFromCloud();
+  } else {
+    if (firestoreUnsubscribe) {
+      firestoreUnsubscribe();
+      firestoreUnsubscribe = null;
+    }
+    resetToDefaultRecipes();
   }
 }
 
