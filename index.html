@@ -1480,11 +1480,11 @@ select option { background: white; }
           <p class="text-muted" style="font-size:0.82rem">Tienes una cantidad fija de un ingrediente concreto.</p>
           <div class="form-field">
             <label class="form-label">Ingrediente</label>
-            <select class="adapter-select" id="adapt-ing-sel" onchange="adaptByIngredient()"></select>
+            <select class="adapter-select" id="adapt-ing-sel" onchange="handleAdapterIngredientChange()"></select>
           </div>
           <div class="form-field">
-            <label class="form-label">Cantidad (gramos)</label>
-            <input type="number" class="form-input" id="adapt-ing-grams" placeholder="Ej. 300" min="1" oninput="adaptByIngredient()">
+            <label class="form-label" id="adapt-ing-label">Cantidad (gramos)</label>
+            <input type="number" class="form-input" id="adapt-ing-grams" placeholder="Ej. 300" min="1" step="0.1" oninput="adaptByIngredient()">
           </div>
         </div>
         <!-- Panel 3: hydration -->
@@ -1514,9 +1514,9 @@ select option { background: white; }
             <thead>
               <tr>
                 <th>Ingrediente</th>
-                <th class="num">Original (g)</th>
+                <th class="num">Original</th>
                 <th class="num">Original (%)</th>
-                <th class="num">Adaptado (g)</th>
+                <th class="num">Adaptado</th>
                 <th class="num">Adaptado (%)</th>
               </tr>
             </thead>
@@ -3489,6 +3489,30 @@ function gramsToEggCount(grams) {
   return Math.round(count * 10) / 10; // Redondea a 1 decimal
 }
 
+function formatIngredientAmount(ing) {
+  const grams = parseFloat(ing.grams) || 0;
+  if (isEggIng(ing.name)) return fmtNum(gramsToEggCount(grams), 1) + ' ud';
+  return fmtNum(grams, 1) + 'g';
+}
+
+function updateAdapterIngredientInput() {
+  const idx = parseInt(document.getElementById('adapt-ing-sel').value, 10);
+  const ing = adapterOriginal && !isNaN(idx) ? adapterOriginal[idx] : null;
+  const label = document.getElementById('adapt-ing-label');
+  const input = document.getElementById('adapt-ing-grams');
+  const isEgg = !!ing && isEggIng(ing.name);
+
+  label.textContent = isEgg ? 'Cantidad (unidades)' : 'Cantidad (gramos)';
+  input.placeholder = isEgg ? 'Ej. 3' : 'Ej. 300';
+  input.step = isEgg ? '1' : '0.1';
+}
+
+function handleAdapterIngredientChange() {
+  document.getElementById('adapt-ing-grams').value = '';
+  updateAdapterIngredientInput();
+  renderComparisonTable(adapterOriginal, adapterOriginal);
+}
+
 function renderIngTable() {
   const tbody = document.getElementById('ing-tbody');
   const calc = calcBakers(editorIngredients);
@@ -3797,6 +3821,7 @@ function loadAdapterRecipe() {
   ingSel.innerHTML = adapterOriginal.map((ing,i) =>
     `<option value="${i}">${escHtml(ing.name||'Ingrediente '+(i+1))}</option>`
   ).join('');
+  updateAdapterIngredientInput();
 
   // Show/hide hydration panel
   const isPan = ['pan','masa madre','bollería'].includes((r.type||'').toLowerCase());
@@ -3843,10 +3868,13 @@ function adaptByTotal() {
 function adaptByIngredient() {
   if (!adapterOriginal) return;
   const idx = parseInt(document.getElementById('adapt-ing-sel').value);
-  const targetG = parseFloat(document.getElementById('adapt-ing-grams').value);
-  if (isNaN(idx) || !targetG || targetG <= 0) { renderComparisonTable(adapterOriginal, adapterOriginal); return; }
+  const rawTarget = parseFloat(document.getElementById('adapt-ing-grams').value);
+  if (isNaN(idx) || !rawTarget || rawTarget <= 0) { renderComparisonTable(adapterOriginal, adapterOriginal); return; }
 
-  const origG = parseFloat(adapterOriginal[idx].grams) || 0;
+  const selectedIng = adapterOriginal[idx];
+  const targetG = isEggIng(selectedIng.name) ? eggCountToGrams(rawTarget) : rawTarget;
+
+  const origG = parseFloat(selectedIng.grams) || 0;
   if (origG <= 0) return;
   const factor = targetG / origG;
   const adapted = adapterOriginal.map(i => ({ ...i, grams: (parseFloat(i.grams)||0) * factor }));
@@ -3882,9 +3910,9 @@ function renderComparisonTable(original, adapted) {
     const changed = Math.abs(origG - adapG) > 0.05;
     return `<tr class="${orig.isBaseIngredient?'base-row':''}">
       <td>${escHtml(orig.name||'')}${orig.isBaseIngredient?' 🌾':''}</td>
-      <td class="num">${fmtNum(origG,1)}g</td>
+      <td class="num">${formatIngredientAmount(orig)}</td>
       <td class="num">${orig.percentage!==null?fmtNum(orig.percentage)+'%':'—'}</td>
-      <td class="num${changed?' changed':''}">${fmtNum(adapG,1)}g</td>
+      <td class="num${changed?' changed':''}">${formatIngredientAmount(adap)}</td>
       <td class="num">${adap.percentage!==null?fmtNum(adap.percentage)+'%':'—'}</td>
     </tr>`;
   }).join('');
@@ -3925,14 +3953,14 @@ function printAdapted() {
         <thead>
           <tr>
             <th style="text-align:left;padding:0.5rem;border-bottom:2px solid #6B3A2A">Ingrediente</th>
-            <th style="text-align:right;padding:0.5rem;border-bottom:2px solid #6B3A2A">Gramos</th>
+            <th style="text-align:right;padding:0.5rem;border-bottom:2px solid #6B3A2A">Cantidad</th>
             <th style="text-align:right;padding:0.5rem;border-bottom:2px solid #6B3A2A">%</th>
           </tr>
         </thead>
         <tbody>
           ${ings.map(i => `<tr>
             <td style="padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8">${escHtml(i.name||'')}${i.isBaseIngredient?' (ingrediente base)':''}</td>
-            <td style="text-align:right;padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8;font-family:'JetBrains Mono',monospace">${fmtNum(parseFloat(i.grams)||0,1)}g</td>
+            <td style="text-align:right;padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8;font-family:'JetBrains Mono',monospace">${formatIngredientAmount(i)}</td>
             <td style="text-align:right;padding:0.4rem 0.5rem;border-bottom:1px solid #F5E6C8;font-family:'JetBrains Mono',monospace">${i.percentage!==null?fmtNum(i.percentage)+'%':'—'}</td>
           </tr>`).join('')}
         </tbody>
