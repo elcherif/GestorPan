@@ -1333,7 +1333,7 @@ select option { background: white; }
             <tr>
               <th style="width:28px"></th>
               <th style="width:36%">Ingrediente</th>
-              <th style="width:18%">Gramos</th>
+              <th style="width:18%">Cantidad</th>
               <th style="width:14%">%</th>
               <th style="width:80px;text-align:center" title="¿Es ingrediente base?">Base ⚖</th>
               <th style="width:80px"></th>
@@ -1403,7 +1403,7 @@ select option { background: white; }
             <thead>
               <tr>
                 <th>Ingrediente</th>
-                <th class="num">Gramos</th>
+                <th class="num">Cantidad</th>
                 <th class="num">%</th>
                 <th class="bar-cell">Proporción</th>
               </tr>
@@ -3281,7 +3281,7 @@ function buildDetailChart(ings) {
         <div style="flex:1;background:var(--cream-dark);border-radius:4px;height:18px;overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${colors[i%colors.length]};border-radius:4px;transition:width 0.5s ease"></div>
         </div>
-        <div style="flex:0 0 60px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--warm-gray);text-align:right">${fmtNum(parseFloat(ing.grams)||0,1)}g</div>
+        <div style="flex:0 0 60px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--warm-gray);text-align:right">${formatIngredientAmount(ing)}</div>
       </div>`;
     }).join('');
     return;
@@ -3299,7 +3299,7 @@ function buildDetailChart(ings) {
     data: {
       labels,
       datasets: [{
-        label: 'Gramos',
+        label: 'Cantidad',
         data,
         backgroundColor: colors.slice(0, ings.length),
         borderRadius: 6,
@@ -3312,7 +3312,14 @@ function buildDetailChart(ings) {
       maintainAspectRatio: true,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}g` } }
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const ing = ings[ctx.dataIndex];
+              return ` ${formatIngredientAmount(ing)}`;
+            }
+          }
+        }
       },
       scales: {
         x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: 'JetBrains Mono', size: 11 } } },
@@ -3507,9 +3514,40 @@ function updateAdapterIngredientInput() {
   input.step = isEgg ? '1' : '0.1';
 }
 
+function renderAdapterOriginalInfo() {
+  if (!adapterOriginal || !adapterRecipeId) return;
+  const recipe = getRecipeById(adapterRecipeId);
+  if (!recipe) return;
+
+  const sum = calcSummary(adapterOriginal);
+  const idx = parseInt(document.getElementById('adapt-ing-sel').value, 10);
+  const selectedIng = !isNaN(idx) ? adapterOriginal[idx] : null;
+  const rows = [
+    { label: 'Nombre', value: recipe.name },
+    { label: 'Tipo', value: recipe.type },
+    { label: 'Ingrediente base', value: fmtNum(sum.totalBase,0)+'g' },
+    { label: 'Masa total', value: fmtNum(sum.totalMass,0)+'g' },
+    { label: 'Hidratación', value: sum.hydration!==null?fmtNum(sum.hydration)+'%':'—' },
+  ];
+
+  if (selectedIng) {
+    rows.push({
+      label: selectedIng.name || 'Ingrediente seleccionado',
+      value: formatIngredientAmount(selectedIng)
+    });
+  }
+
+  document.getElementById('adapter-orig-info').innerHTML = rows.map(s =>
+    `<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--cream-dark);font-size:0.85rem">
+      <span class="text-muted">${escHtml(s.label)}</span><span style="font-weight:500">${escHtml(s.value)}</span>
+    </div>`
+  ).join('');
+}
+
 function handleAdapterIngredientChange() {
   document.getElementById('adapt-ing-grams').value = '';
   updateAdapterIngredientInput();
+  renderAdapterOriginalInfo();
   renderComparisonTable(adapterOriginal, adapterOriginal);
 }
 
@@ -3829,15 +3867,7 @@ function loadAdapterRecipe() {
 
   // Original info
   const sum = calcSummary(adapterOriginal);
-  document.getElementById('adapter-orig-info').innerHTML = [
-    { label: 'Nombre', value: r.name },
-    { label: 'Tipo', value: r.type },
-    { label: 'Ingrediente base', value: fmtNum(sum.totalBase,0)+'g' },
-    { label: 'Masa total', value: fmtNum(sum.totalMass,0)+'g' },
-    { label: 'Hidratación', value: sum.hydration!==null?fmtNum(sum.hydration)+'%':'—' },
-  ].map(s => `<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--cream-dark);font-size:0.85rem">
-    <span class="text-muted">${s.label}</span><span style="font-weight:500">${s.value}</span>
-  </div>`).join('');
+  renderAdapterOriginalInfo();
 
   // Set hydration slider to current hydration
   if (sum.hydration !== null) {
