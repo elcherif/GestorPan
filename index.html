@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="./firebase-config.local.js"></script>
 <style>
 /* ============================================================
    RESET & BASE
@@ -4310,27 +4311,16 @@ function doImport(mode) {
 /* ============================================================
    FIREBASE CONFIGURATION
    ============================================================ */
-// TODO: Reemplaza con la configuración de tu proyecto Firebase.
-// Encuéntrala en: Firebase Console → Configuración del proyecto → Tus apps → SDK setup
-// https://console.firebase.google.com/
-//const FIREBASE_CONFIG = {
-//  apiKey:            "TU_API_KEY",
-//  authDomain:        "TU_PROYECTO.firebaseapp.com",
-//  projectId:         "TU_PROYECTO_ID",
-//  storageBucket:     "TU_PROYECTO.appspot.com",
-//  messagingSenderId: "TU_SENDER_ID",
-//  appId:             "TU_APP_ID"
-//};
-
-const firebaseConfig = {
-    apiKey: "AIzaSyCz0QgctM07xLxKEtXbrRI7-GU3-m7gwRI",
-    authDomain: "gestorpan-3464a.firebaseapp.com",
-    projectId: "gestorpan-3464a",
-    storageBucket: "gestorpan-3464a.firebasestorage.app",
-    messagingSenderId: "363873892880",
-    appId: "1:363873892880:web:03a7e9c22aeccf20842895",
-    measurementId: "G-MBVPTXQLQK"
-  };
+// Carga configuración desde firebase-config.local.js (ignorad@ por Git).
+// Si no existe, la app queda en modo local sin auth cloud.
+const firebaseConfig = (typeof window !== 'undefined' && window.FIREBASE_CONFIG) ? window.FIREBASE_CONFIG : {
+  apiKey: 'TU_API_KEY',
+  authDomain: 'TU_PROYECTO.firebaseapp.com',
+  projectId: 'TU_PROYECTO_ID',
+  storageBucket: 'TU_PROYECTO.appspot.com',
+  messagingSenderId: 'TU_SENDER_ID',
+  appId: 'TU_APP_ID'
+};
 
 /* ============================================================
    FIREBASE AUTH

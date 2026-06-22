@@ -225,3 +225,9 @@ This instance is provided under the terms of the SQL Connect no-cost trial https
 [info] 
 [info] i  genkit: Installing Genkit CLI version 1.34.0
  
+[info] i  genkit: Installing NPM packages for genkit 
+[info] +  genkit: Successfully installed NPM packages 
+[info] i  genkit: Updating tsconfig.json 
+[info] +  genkit: Successfully updated tsconfig.json 
+[info] i  genkit: Updating package.json 
+[info] +  genkit: Successfully updated package.json 
