@@ -1,5 +1,5 @@
 window.FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyB5xCFbEgPvp_GSIRt3Pr2H_cefNVCgEXY', //'AIzaSyCz0QgctM07xLxKEtXbrRI7-GU3-m7gwRI', 
+  apiKey: 'AIzaSyAcUBBHPbRvLBsmQy_hz-GkE4mnOstsj0o', //'AIzaSyCz0QgctM07xLxKEtXbrRI7-GU3-m7gwRI', 
   authDomain: 'gestorpan-3464a.firebaseapp.com',
   projectId: 'gestorpan-3464a',
   storageBucket: 'gestorpan-3464a.firebasestorage.app',
