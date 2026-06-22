@@ -2,6 +2,17 @@
 
 En este archivo se documentarán todos los cambios relevantes de este proyecto.
 
+## 2026-06-22
+
+### Seguridad
+- **Firebase config externalized**: La configuración de Firebase (`firebaseConfig`) se carga desde `firebase-config.local.js` (ignorado por Git) en lugar de estar hardcodeada en `index.html`.
+  - Se añadió `firebase-config.example.js` como plantilla versionable.
+  - Se añadió `.gitignore` para proteger `firebase-config.local.js` y `firebase-debug.log`.
+  - El fallback mantiene funcionamiento local sin Firebase si el archivo no existe.
+
+### Documentación
+- Se actualizó `README.md` con instrucciones de configuración de Firebase y notas de seguridad.
+
 ## 2026-03-30
 
 ### Añadido
