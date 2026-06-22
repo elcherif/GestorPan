@@ -77,6 +77,41 @@ Está pensada para:
 - `index.html`: aplicación completa (UI, estilos y lógica).
 - `CHANGELOG.md`: historial de cambios.
 - `README.md`: documentación.
+- `firebase-config.example.js`: plantilla de configuración de Firebase (se versioná).
+- `firebase-config.local.js`: configuración local con credenciales (ignorado por Git, crear desde example).
 
 ## Almacenamiento de datos
 Los datos se guardan localmente en el navegador mediante `localStorage` (no requiere backend).
+
+Para sincronización en cloud con autenticación, la app también soporta Firebase:
+- Autenticación (login/registro con email/contraseña y Google).
+- Firestore para almacenar recetas de forma persistente en la nube.
+
+### Configurar Firebase
+
+1. **Copia el archivo de configuración:**
+   ```bash
+   cp firebase-config.example.js firebase-config.local.js
+   ```
+
+2. **Rellena las credenciales reales:**
+   Edita `firebase-config.local.js` con los valores de tu proyecto Firebase:
+   ```javascript
+   window.FIREBASE_CONFIG = {
+     apiKey: 'TU_API_KEY_REAL',
+     authDomain: 'tu-proyecto.firebaseapp.com',
+     projectId: 'tu-proyecto-id',
+     storageBucket: 'tu-proyecto.appspot.com',
+     messagingSenderId: 'TU_SENDER_ID',
+     appId: 'TU_APP_ID',
+     measurementId: 'TU_MEASUREMENT_ID'
+   };
+   ```
+
+3. **Seguridad:**
+   - `firebase-config.local.js` **no se versioná** (está en `.gitignore`).
+   - Solo comparte `firebase-config.example.js` con placeholders.
+   - Mantén tus credenciales privadas. Si las expones, rota la API key en Google Cloud Console.
+
+4. **Sin Firebase:**
+   Si no configuras Firebase, la app funciona en modo local con `localStorage`. Simplemente no veas el botón de login ni sincronización en cloud.
